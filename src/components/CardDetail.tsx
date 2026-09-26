@@ -1,11 +1,11 @@
-import { Plus, ExternalLink } from 'lucide-react';
+import { ExternalLink } from 'lucide-react';
 import type { Card } from '../types';
 import CardImage from './CardImage';
 
 const statLabels = { serve: '서브', block: '블록', receive: '리시브', toss: '토스', attack: '어택' };
 const hasText = (text: string) => Boolean(text.trim()) && text.trim() !== '-';
 
-export default function CardDetail({ card, count, onAdd }: { card: Card; count: number; onAdd: () => void }) {
+export default function CardDetail({ card }: { card: Card }) {
   return <div className="detail-layout">
     <div className="detail-visual"><CardImage key={card.id} card={card} eager /><a href={card.sourceUrl} target="_blank" rel="noreferrer">공식 카드 상세 <ExternalLink size={13} /></a><small>{card.copyright}</small></div>
     <div className="detail-content">
@@ -20,7 +20,6 @@ export default function CardDetail({ card, count, onAdd }: { card: Card; count: 
       {card.notes.map(note => <p className="translation-note" key={note}>{note}</p>)}
       <details className="original-text"><summary>일본어 원문 보기</summary><p lang="ja">{hasText(card.skillJa) ? card.skillJa : '—'}</p>{hasText(card.annotationJa) && <p lang="ja">{card.annotationJa}</p>}<p lang="ja">{card.affiliationJa}</p></details>
       {card.illustrator && card.illustrator !== '-' && <p className="muted">Illustration: {card.illustrator}</p>}
-      <button className="primary" onClick={onAdd}>현재 덱에 추가 <Plus size={17} /></button><p className="detail-count" aria-live="polite">현재 덱에 {count}장</p>
     </div>
   </div>;
 }

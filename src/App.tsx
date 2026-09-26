@@ -15,7 +15,7 @@ function download(text: string, filename: string) {
 }
 
 export default function App() {
-  const [page, setPage] = useState<'cards' | 'decks'>('cards');
+  const [page, setPage] = useState<'cards' | 'decks' | 'edit' | 'add'>('cards');
   const [query, setQuery] = useState('');
   const [school, setSchool] = useState('');
   const [product, setProduct] = useState('');
@@ -31,7 +31,7 @@ export default function App() {
   const [detail, setDetail] = useState<Card | null>(null);
   const [saveStatus, setSaveStatus] = useState('');
   const dialog = useRef<HTMLDialogElement>(null);
-  const deckPanel = useRef<HTMLElement>(null);
+
   const catalogPanel = useRef<HTMLElement>(null);
   const deck = decks.find(d => d.id === active) || decks[0];
   const rules = deckRules(deck, cardsById);
@@ -54,10 +54,13 @@ export default function App() {
       return { ...d, cards: next };
     }));
   }
-  function showDeck() { setPage('decks'); deckPanel.current?.scrollIntoView({ block: 'start' }); }
+  function navigate(next: typeof page) { setDetail(null); setPage(next); window.scrollTo({ top: 0 }); }
+  function showDeck() { navigate('decks'); }
+  function openDeck(id: string) { setActive(id); navigate('edit'); }
+  function addCards() { resetFilters(); navigate('add'); }
   function create() {
     const d = { ...blank(), name: `새로운 덱 ${decks.length + 1}` };
-    setDecks(ds => [...ds, d]); setActive(d.id); showDeck();
+    setDecks(ds => [...ds, d]); setActive(d.id); navigate('edit');
   }
   function exportDeck() {
     const payload = { version: 2, source: sourceUrl, deck, cardReferences: Object.keys(deck.cards).map(id => {
@@ -71,7 +74,7 @@ export default function App() {
     try {
       if (file.size > 1024 * 1024) throw new Error('1MB 이하의 덱 JSON 파일을 선택하세요.');
       const imported = importDeck(await file.text(), cardsById);
-      setDecks(ds => [...ds, imported]); setActive(imported.id); showDeck();
+      setDecks(ds => [...ds, imported]); setActive(imported.id); navigate('edit');
       setMessage(`“${imported.name || '이름 없는 덱'}” 덱을 가져왔습니다.`);
     } catch (error) { setMessage(error instanceof Error ? error.message : '덱을 가져오지 못했습니다.'); }
   }
@@ -79,12 +82,12 @@ export default function App() {
     setDeleted(deck);
     const remaining = decks.filter(d => d.id !== deck.id);
     if (!remaining.length) remaining.push(blank());
-    setDecks(remaining); setActive(remaining[0].id);
+    setDecks(remaining); setActive(remaining[0].id); showDeck();
     setMessage('덱을 삭제했습니다. 되돌리기로 복원할 수 있습니다.');
   }
   function undoDelete() {
     if (!deleted) return;
-    setDecks(ds => [...ds, deleted]); setActive(deleted.id); setDeleted(null); setMessage('덱을 복원했습니다.');
+    setDecks(ds => [...ds, deleted]); setActive(deleted.id); setDeleted(null); navigate('edit'); setMessage('덱을 복원했습니다.');
   }
 
   function resetFilters() { setQuery(''); setSchool(''); setProduct(''); setCategory(''); setListPage(1); }
@@ -99,16 +102,54 @@ export default function App() {
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visibleCards = filtered.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
 
+  function quantity(card: Card) {
+    const count = deck.cards[card.id] || 0;
+    return <div className="quantity" aria-label={`${card.name} 수량`}>
+      <button disabled={!count} aria-label={`${card.name} ${card.cardNo} ${card.rarity} 한 장 제거`} onClick={() => change(card.id, -1)}><Minus size={18} /></button>
+      <span aria-live="polite">{count}장</span>
+      <button aria-label={`${card.name} ${card.cardNo} ${card.rarity} 한 장 추가`} onClick={() => change(card.id, 1)}><Plus size={18} /></button>
+    </div>;
+  }
+
   return <>
     <header><a className="brand" href="./"><Volleyball size={30} /><span>ハイキュー!!<small>BABOCA BREAK</small></span></a>
-      <nav><button className={page === 'cards' ? 'selected' : ''} onClick={() => { setPage('cards'); catalogPanel.current?.scrollIntoView({ block: 'start' }); }}><BookOpen size={17} />카드 도감</button><button className={page === 'decks' ? 'selected' : ''} onClick={showDeck}><Layers size={17} />내 덱 <span>{decks.length}</span></button></nav><span className="prototype">FAN CARD ARCHIVE</span>
+      <nav aria-label="주 메뉴"><button className={page === 'cards' ? 'selected' : ''} onClick={() => navigate('cards')}><BookOpen size={17} />카드 도감</button><button className={page !== 'cards' ? 'selected' : ''} onClick={showDeck}><Layers size={17} />내 덱 <span>{decks.length}</span></button></nav><span className="prototype">FAN CARD ARCHIVE</span>
     </header>
-    <main>
-      <section className="hero"><div><p className="eyebrow">YOUR TEAM. YOUR NEXT PLAY.</p><h1>한 장의 카드에서,<br />우리 팀의 다음 플레이로.</h1><p>좋아하는 선수를 발견하고, 나만의 팀을 완성하세요.</p><button className="primary" onClick={create}>새 덱 만들기 <ArrowUpRight size={18} /></button></div><div className="hero-court" aria-hidden="true"><span className="court-line" /><Volleyball /><strong>繋げ。</strong><small>CONNECT THE NEXT PLAY</small></div></section>
-      <div className="notice"><span>공식 카드 데이터</span><div>타카라토미 카드 {cards.length}개 · 패러렐 포함 · 한국어는 AI 번역 초안입니다. <a href={sourceUrl} target="_blank" rel="noreferrer">원본 사이트 ↗</a></div></div>
-      <div className="workspace">
+    <main className={`view-${page}`}>
+      {page === 'cards' && <div className="notice"><span>공식 카드 데이터</span><div>타카라토미 카드 {cards.length}개 · 패러렐 포함 · 한국어는 AI 번역 초안입니다. <a href={sourceUrl} target="_blank" rel="noreferrer">원본 사이트 ↗</a></div></div>}
+      {page !== 'cards' && <>
+        {initial.notice && <div className="recovery-notice" role="alert"><p>{initial.notice}</p>{initial.backup !== null && <button onClick={() => download(initial.backup!, 'haikyu-recovery-original.json')}>복구 전 원본 다운로드</button>}</div>}
+        {message && <p className="action-message" role="status">{message}</p>}
+        {deleted && <button className="secondary" onClick={undoDelete}>삭제 되돌리기 · {deleted.name || '이름 없는 덱'}</button>}
+        <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={e => { void readImport(e.target.files?.[0]); e.target.value = ''; }} />
+      </>}
+      {page === 'decks' && <section className="deck-library">
+        <div className="section-heading"><div><p className="eyebrow">MY DECKS</p><h1>내 덱</h1><p className="muted">덱을 선택해 구성을 편집하거나 새로운 덱을 만드세요.</p></div></div>
+        <div className="view-actions"><button className="primary" onClick={create}><Plus size={18} />새 덱 만들기</button><button className="secondary" onClick={() => fileInput.current?.click()}>덱 JSON 가져오기</button></div>
+        <div className="deck-library-grid">{decks.map(d => {
+          const result = deckRules(d, cardsById);
+          return <button className="deck-tile" key={d.id} onClick={() => openDeck(d.id)}>
+            <Layers size={28} /><h2>{d.name || '이름 없는 덱'}</h2><p>{result.total}/40장 · 이벤트 {result.events}/8장</p><span>{result.issues.length ? '편집 중' : '기본 구성 충족'}</span><strong>덱 편집 <ArrowUpRight size={16} /></strong>
+          </button>;
+        })}</div>
+        <p className="muted" role="status">{saveStatus}</p>
+      </section>}
+      {page === 'edit' && <section className="deck-editor">
+        <button className="back-link" onClick={showDeck}><ChevronLeft size={18} />내 덱 목록</button>
+        <p className="eyebrow">EDIT DECK</p><h1>덱 편집</h1>
+        <label className="field-label" htmlFor="deck-name">덱 이름</label><input id="deck-name" className="deck-name" maxLength={60} value={deck.name} onChange={e => setDecks(ds => ds.map(d => d.id === deck.id ? { ...d, name: e.target.value } : d))} />
+        <div className="editor-summary"><div><strong>{total}/40장</strong><span>이벤트 {rules.events}/8장 · {Object.keys(deck.cards).length}개 카드 항목</span></div><button className="primary" onClick={addCards}><Plus size={18} />카드 추가</button></div>
+        <div className="deck-validation" role="status"><strong>{rules.issues.length ? '덱 구성 확인' : '기본 덱 구성 조건 충족'}</strong>{rules.issues.map(issue => <p key={issue}>{issue}</p>)}<a href={RULES_URL} target="_blank" rel="noreferrer">기본 규칙 · 동일 카드 매수 제한 없음 ↗</a></div>
+        {total === 0 ? <div className="empty"><Volleyball size={36} /><h2>아직 카드가 없습니다</h2><p>위의 ‘카드 추가’를 눌러 이 덱에 넣을 카드를 고르세요.</p></div> : <div className="card-grid deck-card-grid">{Object.entries(deck.cards).map(([id]) => {
+          const c = cardsById.get(id)!;
+          return <article key={id}><button className="card-open" aria-label={`${c.name} ${c.cardNo} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3>{quantity(c)}</div></article>;
+        })}</div>}
+        <div className="editor-tools"><button className="secondary" onClick={exportDeck}><Download size={16} />덱 JSON 내보내기</button><button className="secondary danger" onClick={removeDeck}>현재 덱 삭제</button><small role="status">{saveStatus}</small></div>
+      </section>}
+      {page === 'add' && <div className="add-context"><button className="back-link" onClick={() => navigate('edit')}><ChevronLeft size={18} />덱 편집으로</button><div><strong>{deck.name || '이름 없는 덱'}</strong><span role="status">{total}/40장 · 이벤트 {rules.events}/8장</span><small role="status">{saveStatus}</small></div><button className="primary" onClick={() => navigate('edit')}>추가 완료</button></div>}
+      {(page === 'cards' || page === 'add') && <>
         <section className="catalog" ref={catalogPanel}>
-          <div className="section-heading"><div><p className="eyebrow">{page === 'cards' ? 'CARD COLLECTION' : 'DECK WORKSPACE'}</p><h2>{page === 'cards' ? '카드 도감' : '덱 메이커'} <span>{cards.length}</span></h2></div><span className="muted">원하는 카드를 찾아 덱에 추가하세요</span></div>
+          <div className="section-heading"><div><p className="eyebrow">{page === 'cards' ? 'CARD COLLECTION' : 'ADD CARDS'}</p><h2>{page === 'cards' ? '카드 도감' : '카드 추가'} <span>{cards.length}</span></h2></div><span className="muted">{page === 'cards' ? '카드를 눌러 상세 정보를 확인하세요' : '수량 변경은 현재 덱에 바로 반영됩니다'}</span></div>
           <label className="search"><Search size={19} /><input aria-label="카드 검색" placeholder="이름, 카드 번호, 스킬 검색 (한국어·일본어)" value={query} onChange={e => { setQuery(e.target.value); setListPage(1); }} />{query && <button aria-label="검색어 지우기" onClick={() => { setQuery(''); setListPage(1); }}><X size={16} /></button>}</label>
           <div className="catalog-filters">
             <label>학교·소속<select value={school} onChange={e => { setSchool(e.target.value); setListPage(1); }}><option value="">전체 소속</option>{schools.map(s => <option key={s}>{s}</option>)}</select></label>
@@ -118,34 +159,17 @@ export default function App() {
           <div className="results" role="status">총 <b>{filtered.length}</b>개{filtered.length > 0 && <span>{(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, filtered.length)} 표시 · 패러렐 포함</span>}</div>
           <div className="card-grid">{visibleCards.map(c => <article key={c.id}>
             <button className="card-open" onClick={() => setDetail(c)} aria-label={`${c.name} ${c.cardNo} ${c.rarity} 상세`}><CardImage card={c} /></button>
-            <div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3><span>{c.categoryLabel} · {c.schools.join(' / ') || '소속 없음'}</span><button className="add" aria-label={`${c.name} ${c.cardNo} ${c.rarity} 덱에 추가`} onClick={() => change(c.id, 1)}>{deck.cards[c.id] ? <span>{deck.cards[c.id]}</span> : <Plus size={18} />}</button></div>
+            <div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3><span>{c.categoryLabel} · {c.schools.join(' / ') || '소속 없음'}</span>{page === 'add' && quantity(c)}</div>
           </article>)}</div>
           {!filtered.length && <div className="empty">검색 결과가 없어요.<button onClick={resetFilters}>필터 초기화</button></div>}
           {pageCount > 1 && <nav className="pagination" aria-label="카드 목록 페이지"><button disabled={listPage === 1} onClick={() => movePage(listPage - 1)} aria-label="이전 페이지"><ChevronLeft size={17} />이전</button><label><select aria-label="페이지 선택" value={listPage} onChange={e => movePage(Number(e.target.value))}>{Array.from({ length: pageCount }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} / {pageCount}</option>)}</select></label><button disabled={listPage === pageCount} onClick={() => movePage(listPage + 1)} aria-label="다음 페이지">다음<ChevronRight size={17} /></button></nav>}
         </section>
-        <aside ref={deckPanel}>
-          <div className="deck-top"><span><Layers size={18} /> MY DECK</span><button onClick={create} aria-label="새 덱 만들기"><Plus size={19} /></button></div>
-          <label className="field-label" htmlFor="deck-select">편집할 덱</label><select id="deck-select" value={deck.id} onChange={e => setActive(e.target.value)}>{decks.map(d => <option key={d.id} value={d.id}>{d.name || '이름 없는 덱'}</option>)}</select>
-          <label className="field-label" htmlFor="deck-name">덱 이름</label><input id="deck-name" className="deck-name" maxLength={60} value={deck.name} onChange={e => setDecks(ds => ds.map(d => d.id === deck.id ? { ...d, name: e.target.value } : d))} />
-          <div className="deck-count"><strong>{total}<small> 장</small></strong><span>{Object.keys(deck.cards).length}개 카드 항목</span></div>
-          <div className="deck-items">{total === 0 ? <div className="empty"><Volleyball size={36} /><h3>첫 플레이를 준비하세요</h3><p>카드의 + 버튼을 눌러<br />이 덱에 카드를 추가해 보세요.</p></div> : Object.entries(deck.cards).map(([id, n]) => {
-            const c = cardsById.get(id)!;
-            return <div className="deck-item" key={id}><button className="deck-thumbnail" aria-label={`${c.name} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div><b>{c.name}</b><small>{c.cardNo} · {c.rarity}</small></div><button aria-label={`${c.name} ${c.rarity} 한 장 제거`} onClick={() => change(id, -1)}><Minus size={14} /></button><span>{n}</span><button aria-label={`${c.name} ${c.rarity} 한 장 추가`} onClick={() => change(id, 1)}><Plus size={14} /></button></div>;
-          })}</div>
-          <div className="deck-bottom">
-            <div className="deck-validation" role="status"><strong>{rules.issues.length ? '덱 구성 확인' : '기본 덱 구성 조건 충족'}</strong><p>전체 {total}/40장 · 이벤트 {rules.events}/8장</p>{rules.issues.map(issue => <p key={issue}>{issue}</p>)}<a href={RULES_URL} target="_blank" rel="noreferrer">기본 규칙 · 동일 카드 매수 제한 없음 ↗</a></div>
-            {initial.notice && <div className="recovery-notice" role="alert"><p>{initial.notice}</p>{initial.backup !== null && <button onClick={() => download(initial.backup!, 'haikyu-recovery-original.json')}>복구 전 원본 다운로드</button>}</div>}
-            <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={e => { void readImport(e.target.files?.[0]); e.target.value = ''; }} />
-            <button className="export" onClick={() => fileInput.current?.click()}>덱 JSON 가져오기</button>
-            <button className="export" onClick={removeDeck}>현재 덱 삭제</button>
-            {deleted && <button className="export" onClick={undoDelete}>삭제 되돌리기 · {deleted.name || '이름 없는 덱'}</button>}
-            {message && <p role="status">{message}</p>}<button className="export" onClick={exportDeck}><Download size={16} />덱 JSON 내보내기</button><small role="status">{saveStatus}</small></div>
-        </aside>
-      </div>
+
+      </>}
       <footer><b>HAIKYU!! BABOCA BREAK</b><span>비공식 팬 프로젝트 · 데이터 수집 {fetchedAt.slice(0, 10)} · 이미지 권리: 각 권리자</span></footer>
     </main>
     <dialog ref={dialog} className="card-dialog" aria-labelledby="card-title" onCancel={() => setDetail(null)} onClose={() => setDetail(null)} onClick={e => { if (e.target === e.currentTarget) setDetail(null); }}>
-      {detail && <><button className="close" aria-label="상세 닫기" onClick={() => setDetail(null)}><X /></button><CardDetail card={detail} count={deck.cards[detail.id] || 0} onAdd={() => change(detail.id, 1)} /></>}
+      {detail && <><button className="close" aria-label="상세 닫기" onClick={() => setDetail(null)}><X /></button><CardDetail card={detail} />{(page === 'edit' || page === 'add') && <div className="detail-deck-controls"><span>{deck.name || '이름 없는 덱'}</span>{quantity(detail)}</div>}</>}
     </dialog>
   </>;
 }
