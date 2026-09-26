@@ -22,3 +22,9 @@ npm run preview
 카드 이미지는 공식 사이트에서 불러옵니다. 한국어 번역은 비공식 AI 초안이며 이미지와 작품의 권리는 각 권리자에게 있습니다.
 
 덱은 사용자의 브라우저에 저장됩니다. 다른 도메인으로 이동할 때는 기존 사이트에서 덱 JSON을 내보내고 새 사이트에서 가져오세요.
+
+## GitHub Pages
+
+사이트: https://cocardtcg.github.io/hacard-web/
+
+`main` 브랜치에 푸시하면 GitHub Actions가 설치·빌드 후 `dist`를 GitHub Pages에 배포합니다. 진행 상태는 저장소의 Actions 탭에서 확인할 수 있습니다. 저장소 Settings → Pages의 배포 소스는 GitHub Actions로 설정합니다.
