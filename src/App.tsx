@@ -4,6 +4,7 @@ import { cards, cardsById, schools, products, sourceUrl, fetchedAt } from './dat
 import CardImage from './components/CardImage';
 import CardDetail from './components/CardDetail';
 import type { Card, Deck } from './types';
+import { deckShareUrl, readSharedDeck } from './lib/share';
 import { blankDeck as blank, loadDecks, saveDecks, importDeck, deckRules, RULES_URL, DECK_KEY } from './lib/decks';
 
 const PAGE_SIZE = 24;
@@ -15,11 +16,16 @@ function download(text: string, filename: string) {
 }
 
 export default function App() {
-  const [page, setPage] = useState<'cards' | 'decks' | 'edit' | 'add'>('cards');
+  const [page, setPage] = useState<'cards' | 'decks' | 'edit' | 'add' | 'shared'>(() => location.hash.startsWith('#deck=') ? 'shared' : 'cards');
+  const [shared, setShared] = useState(() => readSharedDeck(location.hash, cardsById));
+  const [shareUrl, setShareUrl] = useState('');
+  const [shareStatus, setShareStatus] = useState('');
   const [query, setQuery] = useState('');
   const [school, setSchool] = useState('');
   const [product, setProduct] = useState('');
   const [category, setCategory] = useState('');
+  const [rarity, setRarity] = useState('');
+  const rarities = useMemo(() => [...new Set(cards.map(card => card.rarity))], []);
   const [listPage, setListPage] = useState(1);
   const [initial] = useState(() => loadDecks({ getItem: key => localStorage.getItem(key) }, cardsById));
   const [decks, setDecks] = useState<Deck[]>(initial.decks);
@@ -44,6 +50,33 @@ export default function App() {
   }, [decks, initial, backupKey]);
   useEffect(() => { if (detail) dialog.current?.showModal(); else dialog.current?.close(); }, [detail]);
 
+  useEffect(() => {
+    const onHashChange = () => {
+      setShared(readSharedDeck(location.hash, cardsById));
+      setDetail(null);
+      setPage(location.hash.startsWith('#deck=') ? 'shared' : 'cards');
+      window.scrollTo({ top: 0 });
+    };
+    window.addEventListener('hashchange', onHashChange);
+    return () => window.removeEventListener('hashchange', onHashChange);
+  }, []);
+  useEffect(() => { setShareUrl(''); setShareStatus(''); }, [deck]);
+
+  async function shareDeck() {
+    try {
+      const url = deckShareUrl(deck, location.href);
+      setShareUrl(url);
+      try { await navigator.clipboard.writeText(url); setShareStatus('공유 링크를 복사했습니다. 원하는 곳에 붙여넣으세요.'); }
+      catch { setShareStatus('아래 링크를 선택해 복사해 주세요.'); }
+    } catch (error) { setShareStatus(error instanceof Error ? error.message : '공유 링크를 만들지 못했습니다.'); }
+  }
+  function saveSharedDeck() {
+    if (!shared.deck) return;
+    const copy = { ...shared.deck, id: crypto.randomUUID(), cards: { ...shared.deck.cards } };
+    setDecks(ds => [...ds, copy]); setActive(copy.id); navigate('edit');
+    setMessage('공유받은 덱을 내 덱에 추가했습니다. 자유롭게 편집하세요.');
+  }
+
   function change(id: string, delta: number) {
     setDecks(ds => ds.map(d => {
       if (d.id !== deck.id) return d;
@@ -54,7 +87,7 @@ export default function App() {
       return { ...d, cards: next };
     }));
   }
-  function navigate(next: typeof page) { setDetail(null); setPage(next); window.scrollTo({ top: 0 }); }
+  function navigate(next: typeof page) { if (location.hash.startsWith('#deck=')) history.replaceState(null, '', location.pathname + location.search); setShareUrl(''); setShareStatus(''); setDetail(null); setPage(next); window.scrollTo({ top: 0 }); }
   function showDeck() { navigate('decks'); }
   function openDeck(id: string) { setActive(id); navigate('edit'); }
   function addCards() { resetFilters(); navigate('add'); }
@@ -90,15 +123,15 @@ export default function App() {
     setDecks(ds => [...ds, deleted]); setActive(deleted.id); setDeleted(null); navigate('edit'); setMessage('덱을 복원했습니다.');
   }
 
-  function resetFilters() { setQuery(''); setSchool(''); setProduct(''); setCategory(''); setListPage(1); }
+  function resetFilters() { setQuery(''); setSchool(''); setProduct(''); setCategory(''); setRarity(''); setListPage(1); }
   function movePage(next: number) { setListPage(next); catalogPanel.current?.scrollIntoView({ block: 'start' }); }
   const filtered = useMemo(() => {
     const words = query.trim().toLocaleLowerCase().split(/\s+/).filter(Boolean);
     return cards.filter(c => {
       const text = `${c.name} ${c.nameJa} ${c.reading} ${c.cardNo} ${c.affiliation} ${c.affiliationJa} ${c.skill} ${c.skillJa}`.toLocaleLowerCase();
-      return (!school || c.schools.includes(school)) && (!product || c.productId === product) && (!category || c.category === category) && words.every(word => text.includes(word));
+      return (!school || c.schools.includes(school)) && (!product || c.productId === product) && (!category || c.category === category) && (!rarity || c.rarity === rarity) && words.every(word => text.includes(word));
     });
-  }, [query, school, product, category]);
+  }, [query, school, product, category, rarity]);
   const pageCount = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE));
   const visibleCards = filtered.slice((listPage - 1) * PAGE_SIZE, listPage * PAGE_SIZE);
 
@@ -113,7 +146,7 @@ export default function App() {
 
   return <>
     <header><a className="brand" href="./"><Volleyball size={30} /><span>ハイキュー!!<small>BABOCA BREAK</small></span></a>
-      <nav aria-label="주 메뉴"><button className={page === 'cards' ? 'selected' : ''} onClick={() => navigate('cards')}><BookOpen size={17} />카드 도감</button><button className={page !== 'cards' ? 'selected' : ''} onClick={showDeck}><Layers size={17} />내 덱 <span>{decks.length}</span></button></nav><span className="prototype">FAN CARD ARCHIVE</span>
+      <nav aria-label="주 메뉴"><button className={page === 'cards' ? 'selected' : ''} onClick={() => navigate('cards')}><BookOpen size={17} /><span className="nav-title"><span>카드</span>{' '}<span>도감</span></span></button><button className={page !== 'cards' ? 'selected' : ''} onClick={showDeck}><Layers size={17} /><span className="nav-title">내 덱</span><span className="nav-count">{decks.length}</span></button></nav><span className="prototype">FAN CARD ARCHIVE</span>
     </header>
     <main className={`view-${page}`}>
       {page === 'cards' && <div className="notice"><span>공식 카드 데이터</span><div>타카라토미 카드 {cards.length}개 · 패러렐 포함 · 한국어는 AI 번역 초안입니다. <a href={sourceUrl} target="_blank" rel="noreferrer">원본 사이트 ↗</a></div></div>}
@@ -123,9 +156,24 @@ export default function App() {
         {deleted && <button className="secondary" onClick={undoDelete}>삭제 되돌리기 · {deleted.name || '이름 없는 덱'}</button>}
         <input ref={fileInput} type="file" accept=".json,application/json" hidden onChange={e => { void readImport(e.target.files?.[0]); e.target.value = ''; }} />
       </>}
+      {page === 'shared' && <section className="shared-deck">
+        <p className="eyebrow">SHARED DECK</p><h1>공유받은 덱</h1>
+        {shared.error ? <div role="alert"><p>{shared.error}</p><button className="secondary" onClick={showDeck}>내 덱으로</button></div> : shared.deck && <>
+          <h2>{shared.deck.name || '이름 없는 덱'}</h2>
+          <p>전체 {deckRules(shared.deck, cardsById).total}/40장 · 이벤트 {deckRules(shared.deck, cardsById).events}/8장</p>
+          <p className="muted">공유한 시점의 구성입니다. 내 덱에 저장하면 직접 편집할 수 있습니다.</p>
+          <div className="view-actions"><button className="primary" onClick={saveSharedDeck}>내 덱에 저장</button><button className="secondary" onClick={showDeck}>내 덱 목록</button></div>
+          {deckRules(shared.deck, cardsById).issues.map(issue => <p key={issue}>{issue}</p>)}
+          {!Object.keys(shared.deck.cards).length && <p>카드가 없는 빈 덱입니다.</p>}
+          <div className="card-grid deck-card-grid">{Object.entries(shared.deck.cards).map(([id, count]) => {
+            const c = cardsById.get(id)!;
+            return <article key={id}><button className="card-open" aria-label={`${c.name} ${c.cardNo} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3><strong>{count}장</strong></div></article>;
+          })}</div>
+        </>}
+      </section>}
       {page === 'decks' && <section className="deck-library">
         <div className="section-heading"><div><p className="eyebrow">MY DECKS</p><h1>내 덱</h1><p className="muted">덱을 선택해 구성을 편집하거나 새로운 덱을 만드세요.</p></div></div>
-        <div className="view-actions"><button className="primary" onClick={create}><Plus size={18} />새 덱 만들기</button><button className="secondary" onClick={() => fileInput.current?.click()}>덱 JSON 가져오기</button></div>
+        <div className="view-actions"><button className="primary" onClick={create}><Plus size={18} />새 덱 만들기</button><button className="secondary" onClick={() => fileInput.current?.click()}>덱 파일 가져오기</button></div>
         <div className="deck-library-grid">{decks.map(d => {
           const result = deckRules(d, cardsById);
           return <button className="deck-tile" key={d.id} onClick={() => openDeck(d.id)}>
@@ -144,7 +192,8 @@ export default function App() {
           const c = cardsById.get(id)!;
           return <article key={id}><button className="card-open" aria-label={`${c.name} ${c.cardNo} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3>{quantity(c)}</div></article>;
         })}</div>}
-        <div className="editor-tools"><button className="secondary" onClick={exportDeck}><Download size={16} />덱 JSON 내보내기</button><button className="secondary danger" onClick={removeDeck}>현재 덱 삭제</button><small role="status">{saveStatus}</small></div>
+        <div className="editor-tools"><button className="primary" onClick={() => void shareDeck()}>공유 링크 복사</button><button className="secondary" onClick={exportDeck}><Download size={16} />덱 파일 백업</button><button className="secondary danger" onClick={removeDeck}>현재 덱 삭제</button><small role="status">{saveStatus}</small></div>
+        {(shareUrl || shareStatus) && <div className="share-panel"><p role="status">{shareStatus}</p>{shareUrl && <><label htmlFor="share-url">덱 공유 링크</label><input id="share-url" readOnly value={shareUrl} onFocus={e => e.target.select()} /><p className="muted">이 링크에는 현재 덱 구성이 담겨 있습니다. 덱을 수정하면 새 링크를 공유해 주세요.</p></>}</div>}
       </section>}
       {page === 'add' && <div className="add-context"><button className="back-link" onClick={() => navigate('edit')}><ChevronLeft size={18} />덱 편집으로</button><div><strong>{deck.name || '이름 없는 덱'}</strong><span role="status">{total}/40장 · 이벤트 {rules.events}/8장</span><small role="status">{saveStatus}</small></div><button className="primary" onClick={() => navigate('edit')}>추가 완료</button></div>}
       {(page === 'cards' || page === 'add') && <>
@@ -155,6 +204,7 @@ export default function App() {
             <label>학교·소속<select value={school} onChange={e => { setSchool(e.target.value); setListPage(1); }}><option value="">전체 소속</option>{schools.map(s => <option key={s}>{s}</option>)}</select></label>
             <label>수록 상품<select value={product} onChange={e => { setProduct(e.target.value); setListPage(1); }}><option value="">전체 상품</option>{products.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
             <label>카드 종류<select value={category} onChange={e => { setCategory(e.target.value); setListPage(1); }}><option value="">전체 종류</option><option value="CHARACTER">캐릭터</option><option value="EVENT">이벤트</option></select></label>
+            <label>카드 등급<select value={rarity} onChange={e => { setRarity(e.target.value); setListPage(1); }}><option value="">전체 등급</option>{rarities.map(r => <option key={r} value={r}>{r}</option>)}</select></label>
           </div>
           <div className="results" role="status">총 <b>{filtered.length}</b>개{filtered.length > 0 && <span>{(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, filtered.length)} 표시 · 패러렐 포함</span>}</div>
           <div className="card-grid">{visibleCards.map(c => <article key={c.id}>
