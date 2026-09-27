@@ -204,7 +204,7 @@ export default function App() {
             <label>학교·소속<select value={school} onChange={e => { setSchool(e.target.value); setListPage(1); }}><option value="">전체 소속</option>{schools.map(s => <option key={s}>{s}</option>)}</select></label>
             <label>수록 상품<select value={product} onChange={e => { setProduct(e.target.value); setListPage(1); }}><option value="">전체 상품</option>{products.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
             <label>카드 종류<select value={category} onChange={e => { setCategory(e.target.value); setListPage(1); }}><option value="">전체 종류</option><option value="CHARACTER">캐릭터</option><option value="EVENT">이벤트</option></select></label>
-            <label>카드 등급<select value={rarity} onChange={e => { setRarity(e.target.value); setListPage(1); }}><option value="">전체 등급</option>{rarities.map(r => <option key={r} value={r}>{r}</option>)}</select></label>
+            <label>카드 등급<select aria-label="카드 등급" value={rarity} onChange={e => { setRarity(e.target.value); setListPage(1); }}><option value="">전체 등급</option>{rarities.map(r => <option key={r} value={r}>{r}</option>)}</select></label>
           </div>
           <div className="results" role="status">총 <b>{filtered.length}</b>개{filtered.length > 0 && <span>{(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, filtered.length)} 표시 · 패러렐 포함</span>}</div>
           <div className="card-grid">{visibleCards.map(c => <article key={c.id}>
