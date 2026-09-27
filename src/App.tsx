@@ -9,6 +9,11 @@ import { deckShareUrl, readSharedDeck } from './lib/share';
 import { blankDeck as blank, loadDecks, saveDecks, importDeck, deckRules, RULES_URL, DECK_KEY } from './lib/decks';
 
 const PAGE_SIZE = 24;
+const PRODUCT_GROUPS = [
+  { label: '부스터 팩', prefix: '부스터 팩 ' },
+  { label: '스타터 덱', prefix: '스타터 덱 ' },
+  { label: '기타', prefix: '' },
+];
 function download(text: string, filename: string) {
   const url = URL.createObjectURL(new Blob([text], { type: 'application/json' }));
   const a = document.createElement('a'); a.href = url; a.download = filename;
@@ -24,6 +29,11 @@ export default function App() {
   const [query, setQuery] = useState('');
   const [school, setSchool] = useState('');
   const [product, setProduct] = useState('');
+  const productGroups = useMemo(() => PRODUCT_GROUPS.map(group => ({
+    label: group.label,
+    items: products.filter(([, name]) => group.prefix ? name.startsWith(group.prefix) : !PRODUCT_GROUPS.some(g => g.prefix && name.startsWith(g.prefix)))
+      .map(([id, name]) => [id, group.prefix ? name.slice(group.prefix.length) : name] as const),
+  })).filter(group => group.items.length), []);
   const [category, setCategory] = useState('');
   const [rarity, setRarity] = useState('');
   const rarities = useMemo(() => [...new Set(cards.map(card => card.rarity))], []);
@@ -203,7 +213,7 @@ export default function App() {
           <label className="search"><Search size={19} /><input aria-label="카드 검색" placeholder="이름, 카드 번호, 스킬 검색 (한국어·일본어)" value={query} onChange={e => { setQuery(e.target.value); setListPage(1); }} />{query && <button aria-label="검색어 지우기" onClick={() => { setQuery(''); setListPage(1); }}><X size={16} /></button>}</label>
           <div className="catalog-filters">
             <label>학교·소속<select value={school} onChange={e => { setSchool(e.target.value); setListPage(1); }}><option value="">전체 소속</option>{schools.map(s => <option key={s}>{s}</option>)}</select></label>
-            <label>수록 상품<select value={product} onChange={e => { setProduct(e.target.value); setListPage(1); }}><option value="">전체 상품</option>{products.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
+            <label>수록 상품<select aria-label="수록 상품" value={product} onChange={e => { setProduct(e.target.value); setListPage(1); }}><option value="">전체 상품</option>{productGroups.map(group => <optgroup key={group.label} label={group.label}>{group.items.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</optgroup>)}</select></label>
             <label>카드 종류<select value={category} onChange={e => { setCategory(e.target.value); setListPage(1); }}><option value="">전체 종류</option><option value="CHARACTER">캐릭터</option><option value="EVENT">이벤트</option></select></label>
             <label>카드 등급<select aria-label="카드 등급" value={rarity} onChange={e => { setRarity(e.target.value); setListPage(1); }}><option value="">전체 등급</option>{rarities.map(r => <option key={r} value={r}>{rarityLabel(r)}</option>)}</select></label>
           </div>
