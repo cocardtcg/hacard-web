@@ -1,3 +1,4 @@
+import { rarityDetailLabel } from '../lib/rarity';
 import { ExternalLink } from 'lucide-react';
 import type { Card } from '../types';
 import CardImage from './CardImage';
@@ -9,7 +10,7 @@ export default function CardDetail({ card }: { card: Card }) {
   return <div className="detail-layout">
     <div className="detail-visual"><CardImage key={card.id} card={card} eager /><a href={card.sourceUrl} target="_blank" rel="noreferrer">공식 카드 상세 <ExternalLink size={13} /></a><small>{card.copyright}</small></div>
     <div className="detail-content">
-      <p className="eyebrow">{card.cardNo} · {card.rarity}</p>
+      <p className="eyebrow">{card.cardNo} · {rarityDetailLabel(card.rarity)}</p>
       <h2 id="card-title">{card.name}</h2><p className="original-name" lang="ja">{card.nameJa}</p>
       <div className="detail-tags"><span>{card.categoryLabel}</span><span>{card.affiliation === '-' ? '소속 없음' : card.affiliation}</span>{card.position !== '-' && <span>{card.position}</span>}</div>
       <p className="product-name">{card.productName}</p>

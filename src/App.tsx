@@ -1,3 +1,4 @@
+import { rarityLabel } from './lib/rarity';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, BookOpen, Layers, Plus, Minus, Search, X, Volleyball, Download, ChevronLeft, ChevronRight } from 'lucide-react';
 import { cards, cardsById, schools, products, sourceUrl, fetchedAt } from './data/cards';
@@ -138,9 +139,9 @@ export default function App() {
   function quantity(card: Card) {
     const count = deck.cards[card.id] || 0;
     return <div className="quantity" aria-label={`${card.name} 수량`}>
-      <button disabled={!count} aria-label={`${card.name} ${card.cardNo} ${card.rarity} 한 장 제거`} onClick={() => change(card.id, -1)}><Minus size={18} /></button>
+      <button disabled={!count} aria-label={`${card.name} ${card.cardNo} ${rarityLabel(card.rarity)} 한 장 제거`} onClick={() => change(card.id, -1)}><Minus size={18} /></button>
       <span aria-live="polite">{count}장</span>
-      <button aria-label={`${card.name} ${card.cardNo} ${card.rarity} 한 장 추가`} onClick={() => change(card.id, 1)}><Plus size={18} /></button>
+      <button aria-label={`${card.name} ${card.cardNo} ${rarityLabel(card.rarity)} 한 장 추가`} onClick={() => change(card.id, 1)}><Plus size={18} /></button>
     </div>;
   }
 
@@ -167,7 +168,7 @@ export default function App() {
           {!Object.keys(shared.deck.cards).length && <p>카드가 없는 빈 덱입니다.</p>}
           <div className="card-grid deck-card-grid">{Object.entries(shared.deck.cards).map(([id, count]) => {
             const c = cardsById.get(id)!;
-            return <article key={id}><button className="card-open" aria-label={`${c.name} ${c.cardNo} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3><strong>{count}장</strong></div></article>;
+            return <article key={id}><button className="card-open" aria-label={`${c.name} ${c.cardNo} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div className="card-meta"><small>{c.cardNo} · {rarityLabel(c.rarity)}</small><h3>{c.name}</h3><strong>{count}장</strong></div></article>;
           })}</div>
         </>}
       </section>}
@@ -190,7 +191,7 @@ export default function App() {
         <div className="deck-validation" role="status"><strong>{rules.issues.length ? '덱 구성 확인' : '기본 덱 구성 조건 충족'}</strong>{rules.issues.map(issue => <p key={issue}>{issue}</p>)}<a href={RULES_URL} target="_blank" rel="noreferrer">기본 규칙 · 동일 카드 매수 제한 없음 ↗</a></div>
         {total === 0 ? <div className="empty"><Volleyball size={36} /><h2>아직 카드가 없습니다</h2><p>위의 ‘카드 추가’를 눌러 이 덱에 넣을 카드를 고르세요.</p></div> : <div className="card-grid deck-card-grid">{Object.entries(deck.cards).map(([id]) => {
           const c = cardsById.get(id)!;
-          return <article key={id}><button className="card-open" aria-label={`${c.name} ${c.cardNo} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3>{quantity(c)}</div></article>;
+          return <article key={id}><button className="card-open" aria-label={`${c.name} ${c.cardNo} 상세`} onClick={() => setDetail(c)}><CardImage card={c} /></button><div className="card-meta"><small>{c.cardNo} · {rarityLabel(c.rarity)}</small><h3>{c.name}</h3>{quantity(c)}</div></article>;
         })}</div>}
         <div className="editor-tools"><button className="primary" onClick={() => void shareDeck()}>공유 링크 복사</button><button className="secondary" onClick={exportDeck}><Download size={16} />덱 파일 백업</button><button className="secondary danger" onClick={removeDeck}>현재 덱 삭제</button><small role="status">{saveStatus}</small></div>
         {(shareUrl || shareStatus) && <div className="share-panel"><p role="status">{shareStatus}</p>{shareUrl && <><label htmlFor="share-url">덱 공유 링크</label><input id="share-url" readOnly value={shareUrl} onFocus={e => e.target.select()} /><p className="muted">이 링크에는 현재 덱 구성이 담겨 있습니다. 덱을 수정하면 새 링크를 공유해 주세요.</p></>}</div>}
@@ -204,12 +205,12 @@ export default function App() {
             <label>학교·소속<select value={school} onChange={e => { setSchool(e.target.value); setListPage(1); }}><option value="">전체 소속</option>{schools.map(s => <option key={s}>{s}</option>)}</select></label>
             <label>수록 상품<select value={product} onChange={e => { setProduct(e.target.value); setListPage(1); }}><option value="">전체 상품</option>{products.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</select></label>
             <label>카드 종류<select value={category} onChange={e => { setCategory(e.target.value); setListPage(1); }}><option value="">전체 종류</option><option value="CHARACTER">캐릭터</option><option value="EVENT">이벤트</option></select></label>
-            <label>카드 등급<select aria-label="카드 등급" value={rarity} onChange={e => { setRarity(e.target.value); setListPage(1); }}><option value="">전체 등급</option>{rarities.map(r => <option key={r} value={r}>{r}</option>)}</select></label>
+            <label>카드 등급<select aria-label="카드 등급" value={rarity} onChange={e => { setRarity(e.target.value); setListPage(1); }}><option value="">전체 등급</option>{rarities.map(r => <option key={r} value={r}>{rarityLabel(r)}</option>)}</select></label>
           </div>
           <div className="results" role="status">총 <b>{filtered.length}</b>개{filtered.length > 0 && <span>{(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, filtered.length)} 표시 · 패러렐 포함</span>}</div>
           <div className="card-grid">{visibleCards.map(c => <article key={c.id}>
-            <button className="card-open" onClick={() => setDetail(c)} aria-label={`${c.name} ${c.cardNo} ${c.rarity} 상세`}><CardImage card={c} /></button>
-            <div className="card-meta"><small>{c.cardNo} · {c.rarity}</small><h3>{c.name}</h3><span>{c.categoryLabel} · {c.schools.join(' / ') || '소속 없음'}</span>{page === 'add' && quantity(c)}</div>
+            <button className="card-open" onClick={() => setDetail(c)} aria-label={`${c.name} ${c.cardNo} ${rarityLabel(c.rarity)} 상세`}><CardImage card={c} /></button>
+            <div className="card-meta"><small>{c.cardNo} · {rarityLabel(c.rarity)}</small><h3>{c.name}</h3><span>{c.categoryLabel} · {c.schools.join(' / ') || '소속 없음'}</span>{page === 'add' && quantity(c)}</div>
           </article>)}</div>
           {!filtered.length && <div className="empty">검색 결과가 없어요.<button onClick={resetFilters}>필터 초기화</button></div>}
           {pageCount > 1 && <nav className="pagination" aria-label="카드 목록 페이지"><button disabled={listPage === 1} onClick={() => movePage(listPage - 1)} aria-label="이전 페이지"><ChevronLeft size={17} />이전</button><label><select aria-label="페이지 선택" value={listPage} onChange={e => movePage(Number(e.target.value))}>{Array.from({ length: pageCount }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} / {pageCount}</option>)}</select></label><button disabled={listPage === pageCount} onClick={() => movePage(listPage + 1)} aria-label="다음 페이지">다음<ChevronRight size={17} /></button></nav>}
