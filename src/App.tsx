@@ -1,3 +1,4 @@
+import ThemedSelect from './components/ThemedSelect';
 import { rarityLabel } from './lib/rarity';
 import { useEffect, useMemo, useRef, useState } from 'react';
 import { ArrowUpRight, BookOpen, Layers, Plus, Minus, Search, X, Volleyball, Download, ChevronLeft, ChevronRight } from 'lucide-react';
@@ -212,10 +213,10 @@ export default function App() {
           <div className="section-heading"><div><p className="eyebrow">{page === 'cards' ? 'CARD COLLECTION' : 'ADD CARDS'}</p><h2>{page === 'cards' ? '카드 도감' : '카드 추가'} <span>{cards.length}</span></h2></div><span className="muted">{page === 'cards' ? '카드를 눌러 상세 정보를 확인하세요' : '수량 변경은 현재 덱에 바로 반영됩니다'}</span></div>
           <label className="search"><Search size={19} /><input aria-label="카드 검색" placeholder="이름, 카드 번호, 스킬 검색 (한국어·일본어)" value={query} onChange={e => { setQuery(e.target.value); setListPage(1); }} />{query && <button aria-label="검색어 지우기" onClick={() => { setQuery(''); setListPage(1); }}><X size={16} /></button>}</label>
           <div className="catalog-filters">
-            <label>학교·소속<select value={school} onChange={e => { setSchool(e.target.value); setListPage(1); }}><option value="">전체 소속</option>{schools.map(s => <option key={s}>{s}</option>)}</select></label>
-            <label>수록 상품<select aria-label="수록 상품" value={product} onChange={e => { setProduct(e.target.value); setListPage(1); }}><option value="">전체 상품</option>{productGroups.map(group => <optgroup key={group.label} label={group.label}>{group.items.map(([id, name]) => <option key={id} value={id}>{name}</option>)}</optgroup>)}</select></label>
-            <label>카드 종류<select value={category} onChange={e => { setCategory(e.target.value); setListPage(1); }}><option value="">전체 종류</option><option value="CHARACTER">캐릭터</option><option value="EVENT">이벤트</option></select></label>
-            <label>카드 등급<select aria-label="카드 등급" value={rarity} onChange={e => { setRarity(e.target.value); setListPage(1); }}><option value="">전체 등급</option>{rarities.map(r => <option key={r} value={r}>{rarityLabel(r)}</option>)}</select></label>
+            <div className="filter-field"><span>학교·소속</span><ThemedSelect label="학교·소속" value={school} onChange={value => { setSchool(value); setListPage(1); }} options={[{ value: '', label: '전체 소속' }, ...schools.map(value => ({ value, label: value }))]} /></div>
+            <div className="filter-field"><span>수록 상품</span><ThemedSelect label="수록 상품" value={product} onChange={value => { setProduct(value); setListPage(1); }} options={[{ value: '', label: '전체 상품' }, ...productGroups.flatMap(group => group.items.map(([value, label]) => ({ value, label, group: group.label })))]} /></div>
+            <div className="filter-field"><span>카드 종류</span><ThemedSelect label="카드 종류" value={category} onChange={value => { setCategory(value); setListPage(1); }} options={[{ value: '', label: '전체 종류' }, { value: 'CHARACTER', label: '캐릭터' }, { value: 'EVENT', label: '이벤트' }]} /></div>
+            <div className="filter-field"><span>카드 등급</span><ThemedSelect label="카드 등급" value={rarity} onChange={value => { setRarity(value); setListPage(1); }} options={[{ value: '', label: '전체 등급' }, ...rarities.map(value => ({ value, label: rarityLabel(value) }))]} /></div>
           </div>
           <div className="results" role="status">총 <b>{filtered.length}</b>개{filtered.length > 0 && <span>{(listPage - 1) * PAGE_SIZE + 1}–{Math.min(listPage * PAGE_SIZE, filtered.length)} 표시 · 패러렐 포함</span>}</div>
           <div className="card-grid">{visibleCards.map(c => <article key={c.id}>
@@ -223,7 +224,7 @@ export default function App() {
             <div className="card-meta"><small>{c.cardNo} · {rarityLabel(c.rarity)}</small><h3>{c.name}</h3><span>{c.categoryLabel} · {c.schools.join(' / ') || '소속 없음'}</span>{page === 'add' && quantity(c)}</div>
           </article>)}</div>
           {!filtered.length && <div className="empty">검색 결과가 없어요.<button onClick={resetFilters}>필터 초기화</button></div>}
-          {pageCount > 1 && <nav className="pagination" aria-label="카드 목록 페이지"><button disabled={listPage === 1} onClick={() => movePage(listPage - 1)} aria-label="이전 페이지"><ChevronLeft size={17} />이전</button><label><select aria-label="페이지 선택" value={listPage} onChange={e => movePage(Number(e.target.value))}>{Array.from({ length: pageCount }, (_, i) => <option key={i + 1} value={i + 1}>{i + 1} / {pageCount}</option>)}</select></label><button disabled={listPage === pageCount} onClick={() => movePage(listPage + 1)} aria-label="다음 페이지">다음<ChevronRight size={17} /></button></nav>}
+          {pageCount > 1 && <nav className="pagination" aria-label="카드 목록 페이지"><button disabled={listPage === 1} onClick={() => movePage(listPage - 1)} aria-label="이전 페이지"><ChevronLeft size={17} />이전</button><ThemedSelect label="페이지 선택" value={String(listPage)} onChange={value => movePage(Number(value))} options={Array.from({ length: pageCount }, (_, i) => ({ value: String(i + 1), label: `${i + 1} / ${pageCount}` }))} /><button disabled={listPage === pageCount} onClick={() => movePage(listPage + 1)} aria-label="다음 페이지">다음<ChevronRight size={17} /></button></nav>}
         </section>
 
       </>}
